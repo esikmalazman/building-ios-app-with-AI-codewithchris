@@ -11,14 +11,20 @@ struct ContentView: View {
     // MARK: - State
     @State private var billAmount: String = ""
     @State private var billAmountError: String? = nil
-    @State private var selectedTipIndex: Int = 1
+    @State private var selectedTipPercentage: Int = 15
     @State private var numberOfPeople: Int = 2
 
     private let tipOptions = [10, 15, 20]
+    private let defaultTipPercentage = 15
 
     // MARK: - Derived bill value
     var parsedBillAmount: Double {
         Double(billAmount) ?? 0
+    }
+
+    /// Returns the active tip percentage, falling back to the default if selection is somehow invalid.
+    var activeTipPercentage: Int {
+        tipOptions.contains(selectedTipPercentage) ? selectedTipPercentage : defaultTipPercentage
     }
 
     // MARK: - Computed placeholders (wired up in later build steps)
@@ -60,12 +66,18 @@ struct ContentView: View {
 
                     // MARK: Tip Percentage Section
                     SectionCard(title: "Tip Percentage") {
-                        Picker("Tip", selection: $selectedTipIndex) {
-                            ForEach(tipOptions.indices, id: \.self) { index in
-                                Text("\(tipOptions[index])%").tag(index)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Picker("Tip Percentage", selection: $selectedTipPercentage) {
+                                ForEach(tipOptions, id: \.self) { percentage in
+                                    Text("\(percentage)%").tag(percentage)
+                                }
                             }
+                            .pickerStyle(.segmented)
+
+                            Text("Selected: \(activeTipPercentage)%")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
                         }
-                        .pickerStyle(.segmented)
                     }
 
                     // MARK: Summary Section
