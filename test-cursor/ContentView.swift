@@ -8,140 +8,18 @@
 import SwiftUI
 
 struct ContentView: View {
-    // MARK: - Persisted state (D-004: saved across launches via UserDefaults)
-    @AppStorage("lastBillAmount") private var billAmount: String = ""
-    @AppStorage("lastTipPercentage") private var selectedTipPercentage: Int = 15
-    @AppStorage("lastNumberOfPeople") private var numberOfPeople: Int = 2
 
-    // MARK: - Transient state
-    @State private var billAmountError: String? = nil
-    @FocusState private var billFieldFocused: Bool
-
-    private let tipOptions = TipCalculator.tipOptions
-    private let defaultTipPercentage = TipCalculator.defaultTipPercentage
-
-    // MARK: - Derived values (delegated to TipCalculator)
-
-    var parsedBillAmount: Double { TipCalculator.parseBillAmount(billAmount) }
-    var billIsEmpty: Bool { parsedBillAmount == 0 }
-    var activeTipPercentage: Int { TipCalculator.safeTipPercentage(selectedTipPercentage) }
-    var safePeopleCount: Int { TipCalculator.safePeopleCount(numberOfPeople) }
-
-    var tipAmount: Double {
-        TipCalculator.tipAmount(bill: parsedBillAmount, tipPercentage: selectedTipPercentage)
-    }
-    var totalAmount: Double {
-        TipCalculator.totalAmount(bill: parsedBillAmount, tipPercentage: selectedTipPercentage)
-    }
-    var amountPerPerson: Double {
-        TipCalculator.amountPerPerson(bill: parsedBillAmount, tipPercentage: selectedTipPercentage, numberOfPeople: numberOfPeople)
-    }
+    @State private var viewModel = TipCalculatorViewModel()
+    @FocusState private var isBillFieldFocused: Bool
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 28) {
-
-                    // MARK: Bill Amount Section
-                    SectionCard(title: "Bill Amount") {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                                Text("$")
-                                    .font(.system(size: 32, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                                TextField("0.00", text: $billAmount)
-                                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                                    .keyboardType(.decimalPad)
-                                    .focused($billFieldFocused)
-                                    .onChange(of: billAmount) { _, newValue in
-                                        billAmount = sanitizeBillInput(newValue, previous: billAmount)
-                                    }
-                            }
-                            .padding(.horizontal, 4)
-
-                            if let error = billAmountError {
-                                Label(error, systemImage: "exclamationmark.circle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.red)
-                                    .padding(.horizontal, 4)
-                                    .transition(.move(edge: .top).combined(with: .opacity))
-                            }
-                        }
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: billAmountError)
-                    }
-
-                    // MARK: Tip Percentage Section
-                    SectionCard(title: "Tip Percentage") {
-                        Picker("Tip Percentage", selection: $selectedTipPercentage) {
-                            ForEach(tipOptions, id: \.self) { percentage in
-                                Text("\(percentage)%")
-                                    .font(.system(.body, design: .rounded, weight: .medium))
-                                    .tag(percentage)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    }
-
-                    // MARK: Results Section
-                    SectionCard(title: "Results") {
-                        if billIsEmpty {
-                            Text("Enter a bill amount above to see your totals.")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 8)
-                        } else {
-                            HStack(spacing: 12) {
-                                ResultCard(label: "Tip", value: tipAmount, highlighted: false)
-                                ResultCard(label: "Total", value: totalAmount, highlighted: true)
-                            }
-                        }
-                    }
-                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: billIsEmpty)
-
-                    // MARK: Split Bill Section
-                    SectionCard(title: "Split Bill") {
-                        VStack(spacing: 20) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text("Number of People")
-                                        .font(.body)
-                                        .foregroundStyle(.primary)
-                                    Text(safePeopleCount == 1 ? "1 person" : "\(safePeopleCount) people")
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Stepper(value: $numberOfPeople, in: 1...20) {
-                                    EmptyView()
-                                }
-                                .onChange(of: numberOfPeople) { _, newValue in
-                                    if newValue < 1 { numberOfPeople = 1 }
-                                }
-                                .labelsHidden()
-                            }
-
-                            if !billIsEmpty {
-                                Divider()
-
-                                VStack(spacing: 4) {
-                                    Text(safePeopleCount == 1 ? "You pay" : "Each person pays")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                    Text(amountPerPerson, format: .currency(code: "USD"))
-                                        .font(.system(size: 40, weight: .bold, design: .rounded))
-                                        .foregroundStyle(.tint)
-                                        .contentTransition(.numericText())
-                                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: amountPerPerson)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 4)
-                            }
-                        }
-                        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: billIsEmpty)
-                    }
-
+                    billSection
+                    tipSection
+                    resultsSection
+                    splitSection
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 16)
@@ -149,50 +27,143 @@ struct ContentView: View {
             .navigationTitle("Tip Calculator")
             .navigationBarTitleDisplayMode(.large)
             .background(Color(.systemGroupedBackground))
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Reset") {
-                        resetToDefaults()
-                    }
-                    .disabled(billIsEmpty && selectedTipPercentage == defaultTipPercentage && numberOfPeople == 2)
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        billFieldFocused = false
-                    }
-                    .fontWeight(.semibold)
-                }
-            }
+            .toolbar { toolbarContent }
         }
-    }
-    // MARK: - Reset
-
-    private func resetToDefaults() {
-        billFieldFocused = false
-        billAmount = ""
-        selectedTipPercentage = defaultTipPercentage
-        numberOfPeople = 2
-        billAmountError = nil
-    }
-
-    // MARK: - Bill Input Validation
-
-    private func sanitizeBillInput(_ input: String, previous: String) -> String {
-        let result = TipCalculator.sanitizeBillInput(input)
-        if result != input {
-            billAmountError = "Enter numbers only"
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                billAmountError = nil
-            }
-        }
-        return result
     }
 }
 
-// MARK: - Reusable Components
+// MARK: - Sections
+
+private extension ContentView {
+
+    @ViewBuilder
+    var billSection: some View {
+        @Bindable var vm = viewModel
+
+        SectionCard(title: "Bill Amount") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("$")
+                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    TextField("0.00", text: $vm.billAmount)
+                        .font(.system(size: 48, weight: .bold, design: .rounded))
+                        .keyboardType(.decimalPad)
+                        .focused($isBillFieldFocused)
+                        .onChange(of: vm.billAmount) { _, newValue in
+                            viewModel.handleBillInput(newValue)
+                        }
+                }
+                .padding(.horizontal, 4)
+
+                if let error = viewModel.billAmountError {
+                    Label(error, systemImage: "exclamationmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 4)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.billAmountError)
+        }
+    }
+
+    @ViewBuilder
+    var tipSection: some View {
+        @Bindable var vm = viewModel
+
+        SectionCard(title: "Tip Percentage") {
+            Picker("Tip Percentage", selection: $vm.selectedTipPercentage) {
+                ForEach(TipCalculator.tipOptions, id: \.self) { percentage in
+                    Text("\(percentage)%")
+                        .font(.system(.body, design: .rounded, weight: .medium))
+                        .tag(percentage)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+    }
+
+    var resultsSection: some View {
+        SectionCard(title: "Results") {
+            if viewModel.billIsEmpty {
+                Text("Enter a bill amount above to see your totals.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+            } else {
+                HStack(spacing: 12) {
+                    ResultCard(label: "Tip",   value: viewModel.tipAmount,   highlighted: false)
+                    ResultCard(label: "Total", value: viewModel.totalAmount, highlighted: true)
+                }
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: viewModel.billIsEmpty)
+    }
+
+    @ViewBuilder
+    var splitSection: some View {
+        @Bindable var vm = viewModel
+
+        SectionCard(title: "Split Bill") {
+            VStack(spacing: 20) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Number of People")
+                            .font(.body)
+                        Text(viewModel.safePeopleCount == 1 ? "1 person" : "\(viewModel.safePeopleCount) people")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Stepper(value: $vm.numberOfPeople, in: 1...20) { EmptyView() }
+                        .labelsHidden()
+                }
+
+                if !viewModel.billIsEmpty {
+                    Divider()
+
+                    VStack(spacing: 4) {
+                        Text(viewModel.safePeopleCount == 1 ? "You pay" : "Each person pays")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text(viewModel.amountPerPerson, format: .currency(code: "USD"))
+                            .font(.system(size: 40, weight: .bold, design: .rounded))
+                            .foregroundStyle(.tint)
+                            .contentTransition(.numericText())
+                            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: viewModel.amountPerPerson)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                }
+            }
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: viewModel.billIsEmpty)
+        }
+    }
+
+    @ToolbarContentBuilder
+    var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("Reset") {
+                viewModel.reset()
+                isBillFieldFocused = false
+            }
+            .disabled(viewModel.isAtDefaults)
+        }
+        ToolbarItemGroup(placement: .keyboard) {
+            Spacer()
+            Button("Done") { isBillFieldFocused = false }
+                .fontWeight(.semibold)
+        }
+    }
+}
+
+// MARK: - Components
 
 private struct SectionCard<Content: View>: View {
+
     let title: String
     @ViewBuilder let content: () -> Content
 
@@ -212,6 +183,7 @@ private struct SectionCard<Content: View>: View {
 }
 
 private struct ResultCard: View {
+
     let label: String
     let value: Double
     let highlighted: Bool
@@ -229,11 +201,7 @@ private struct ResultCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(
-            highlighted
-                ? Color.accentColor.opacity(0.1)
-                : Color(.secondarySystemGroupedBackground)
-        )
+        .background(highlighted ? Color.accentColor.opacity(0.1) : Color(.secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .overlay(
             highlighted
