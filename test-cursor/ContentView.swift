@@ -13,14 +13,20 @@ struct ContentView: View {
     @State private var billAmountError: String? = nil
     @State private var selectedTipPercentage: Int = 15
     @State private var numberOfPeople: Int = 2
+    @FocusState private var billFieldFocused: Bool
 
     private let tipOptions = [10, 15, 20]
     private let defaultTipPercentage = 15
 
     // MARK: - Derived bill value
+
+    /// Parses the bill string to a Double, treating a lone "." as empty.
     var parsedBillAmount: Double {
-        Double(billAmount) ?? 0
+        let trimmed = billAmount.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        return Double(trimmed) ?? 0
     }
+
+    var billIsEmpty: Bool { parsedBillAmount == 0 }
 
     /// Returns the active tip percentage, falling back to the default if selection is somehow invalid.
     var activeTipPercentage: Int {
@@ -69,6 +75,7 @@ struct ContentView: View {
                                 TextField("0.00", text: $billAmount)
                                     .font(.title2)
                                     .keyboardType(.decimalPad)
+                                    .focused($billFieldFocused)
                                     .onChange(of: billAmount) { _, newValue in
                                         billAmount = sanitizeBillInput(newValue, previous: billAmount)
                                     }
@@ -105,11 +112,20 @@ struct ContentView: View {
                     // MARK: Summary Section
                     SectionCard(title: "Summary") {
                         VStack(spacing: 16) {
-                            SummaryRow(label: "Tip Amount", value: tipAmount)
-                            Divider()
-                            SummaryRow(label: "Total Amount", value: totalAmount)
-                                .fontWeight(.semibold)
+                            if billIsEmpty {
+                                Text("Enter a bill amount above to see your totals.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.vertical, 4)
+                            } else {
+                                SummaryRow(label: "Tip Amount", value: tipAmount)
+                                Divider()
+                                SummaryRow(label: "Total Amount", value: totalAmount)
+                                    .fontWeight(.semibold)
+                            }
                         }
+                        .animation(.easeInOut(duration: 0.2), value: billIsEmpty)
                     }
 
                     // MARK: Split Bill Section
@@ -136,9 +152,18 @@ struct ContentView: View {
                                 .labelsHidden()
                             }
                             Divider()
-                            SummaryRow(label: "Per Person", value: amountPerPerson)
-                                .fontWeight(.semibold)
+                            if billIsEmpty {
+                                Text("Enter a bill amount to calculate the split.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                                    .padding(.vertical, 4)
+                            } else {
+                                SummaryRow(label: "Per Person", value: amountPerPerson)
+                                    .fontWeight(.semibold)
+                            }
                         }
+                        .animation(.easeInOut(duration: 0.2), value: billIsEmpty)
                     }
 
                 }
@@ -147,6 +172,14 @@ struct ContentView: View {
             }
             .navigationTitle("Tip Calculator")
             .background(Color(.systemGroupedBackground))
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        billFieldFocused = false
+                    }
+                }
+            }
         }
     }
     // MARK: - Bill Input Validation
