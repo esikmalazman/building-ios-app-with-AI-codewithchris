@@ -46,8 +46,13 @@ struct ContentView: View {
         max(1, numberOfPeople)
     }
 
-    // MARK: - Computed placeholder (wired up in later build steps)
-    private var amountPerPerson: Double { 0 }
+    /// F-006: Amount per person = total ÷ number of people.
+    /// Returns totalAmount directly when safePeopleCount is 1 (avoids divide-by-zero and satisfies spec).
+    var amountPerPerson: Double {
+        guard totalAmount > 0 else { return 0 }
+        guard safePeopleCount > 1 else { return totalAmount }
+        return totalAmount / Double(safePeopleCount)
+    }
 
     var body: some View {
         NavigationStack {
