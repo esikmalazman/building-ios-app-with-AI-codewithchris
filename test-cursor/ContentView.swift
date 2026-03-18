@@ -8,11 +8,13 @@
 import SwiftUI
 
 struct ContentView: View {
-    // MARK: - State
-    @State private var billAmount: String = ""
+    // MARK: - Persisted state (D-004: saved across launches via UserDefaults)
+    @AppStorage("lastBillAmount") private var billAmount: String = ""
+    @AppStorage("lastTipPercentage") private var selectedTipPercentage: Int = 15
+    @AppStorage("lastNumberOfPeople") private var numberOfPeople: Int = 2
+
+    // MARK: - Transient state
     @State private var billAmountError: String? = nil
-    @State private var selectedTipPercentage: Int = 15
-    @State private var numberOfPeople: Int = 2
     @FocusState private var billFieldFocused: Bool
 
     private let tipOptions = [10, 15, 20]
@@ -173,6 +175,12 @@ struct ContentView: View {
             .navigationTitle("Tip Calculator")
             .background(Color(.systemGroupedBackground))
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Reset") {
+                        resetToDefaults()
+                    }
+                    .disabled(billIsEmpty && selectedTipPercentage == defaultTipPercentage && numberOfPeople == 2)
+                }
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
                     Button("Done") {
@@ -182,6 +190,16 @@ struct ContentView: View {
             }
         }
     }
+    // MARK: - Reset
+
+    private func resetToDefaults() {
+        billFieldFocused = false
+        billAmount = ""
+        selectedTipPercentage = defaultTipPercentage
+        numberOfPeople = 2
+        billAmountError = nil
+    }
+
     // MARK: - Bill Input Validation
 
     /// Strips non-numeric characters (letters, symbols) from bill input.
