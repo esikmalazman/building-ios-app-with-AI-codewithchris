@@ -27,8 +27,15 @@ struct ContentView: View {
         tipOptions.contains(selectedTipPercentage) ? selectedTipPercentage : defaultTipPercentage
     }
 
+    // MARK: - Calculations
+
+    /// F-003: Tip amount = bill × tip% ÷ 100. Returns 0 when no bill is entered (D-001).
+    var tipAmount: Double {
+        guard parsedBillAmount > 0 else { return 0 }
+        return parsedBillAmount * Double(activeTipPercentage) / 100
+    }
+
     // MARK: - Computed placeholders (wired up in later build steps)
-    private var tipAmount: Double { 0 }
     private var totalAmount: Double { 0 }
     private var amountPerPerson: Double { 0 }
 
