@@ -46,3 +46,8 @@ Could you help improve the visual hierarchy of this card component by:
 2. Making the title more prominent
 3. Softening the contrast of secondary text
 ```
+
+### Resources
+[Cursor rules](https://gist.github.com/esikmalazman/12e57e925ba580a1b626f28a22b283bb)
+<br>
+[iOS requirements doc prompt](https://gist.github.com/esikmalazman/9b5d304f1c1dbc972ce6cfc1b58c3a30)
