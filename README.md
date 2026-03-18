@@ -1,4 +1,4 @@
-# Prototyping puzzles
+# Build an App with AI using Cursor
 
 This repository contains a project to help myself learn how to building iOS app and communicate visual design changes using Cursor AI.
 The goal is to help me to practice to adopt my workflow and effectively describing design improvements to AI.
