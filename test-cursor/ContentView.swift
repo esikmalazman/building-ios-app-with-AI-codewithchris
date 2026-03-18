@@ -35,8 +35,13 @@ struct ContentView: View {
         return parsedBillAmount * Double(activeTipPercentage) / 100
     }
 
-    // MARK: - Computed placeholders (wired up in later build steps)
-    private var totalAmount: Double { 0 }
+    /// F-004: Total amount = bill + tip. Returns 0 if inputs are empty.
+    var totalAmount: Double {
+        guard parsedBillAmount > 0 else { return 0 }
+        return parsedBillAmount + tipAmount
+    }
+
+    // MARK: - Computed placeholder (wired up in later build steps)
     private var amountPerPerson: Double { 0 }
 
     var body: some View {
