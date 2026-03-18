@@ -41,6 +41,11 @@ struct ContentView: View {
         return parsedBillAmount + tipAmount
     }
 
+    /// F-005: Safe people count — clamps to 1 if numberOfPeople is somehow below 1 (D-003).
+    var safePeopleCount: Int {
+        max(1, numberOfPeople)
+    }
+
     // MARK: - Computed placeholder (wired up in later build steps)
     private var amountPerPerson: Double { 0 }
 
@@ -106,18 +111,24 @@ struct ContentView: View {
                     SectionCard(title: "Split Bill") {
                         VStack(spacing: 16) {
                             HStack {
-                                Text("Number of People")
-                                    .foregroundStyle(.primary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Number of People")
+                                        .foregroundStyle(.primary)
+                                    Text(safePeopleCount == 1 ? "1 person" : "\(safePeopleCount) people")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
                                 Spacer()
                                 Stepper(
                                     value: $numberOfPeople,
                                     in: 1...20
                                 ) {
-                                    Text("\(numberOfPeople)")
-                                        .font(.title3)
-                                        .fontWeight(.medium)
-                                        .frame(minWidth: 32, alignment: .trailing)
+                                    EmptyView()
                                 }
+                                .onChange(of: numberOfPeople) { _, newValue in
+                                    if newValue < 1 { numberOfPeople = 1 }
+                                }
+                                .labelsHidden()
                             }
                             Divider()
                             SummaryRow(label: "Per Person", value: amountPerPerson)
