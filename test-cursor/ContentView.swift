@@ -8,14 +8,20 @@
 import SwiftUI
 
 struct ContentView: View {
-    // MARK: - State (wired up in later build steps)
+    // MARK: - State
     @State private var billAmount: String = ""
+    @State private var billAmountError: String? = nil
     @State private var selectedTipIndex: Int = 1
     @State private var numberOfPeople: Int = 2
 
     private let tipOptions = [10, 15, 20]
 
-    // MARK: - Computed placeholders
+    // MARK: - Derived bill value
+    var parsedBillAmount: Double {
+        Double(billAmount) ?? 0
+    }
+
+    // MARK: - Computed placeholders (wired up in later build steps)
     private var tipAmount: Double { 0 }
     private var totalAmount: Double { 0 }
     private var amountPerPerson: Double { 0 }
@@ -27,15 +33,29 @@ struct ContentView: View {
 
                     // MARK: Bill Amount Section
                     SectionCard(title: "Bill Amount") {
-                        HStack {
-                            Text("$")
-                                .font(.title2)
-                                .foregroundStyle(.secondary)
-                            TextField("0.00", text: $billAmount)
-                                .font(.title2)
-                                .keyboardType(.decimalPad)
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("$")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                TextField("0.00", text: $billAmount)
+                                    .font(.title2)
+                                    .keyboardType(.decimalPad)
+                                    .onChange(of: billAmount) { _, newValue in
+                                        billAmount = sanitizeBillInput(newValue, previous: billAmount)
+                                    }
+                            }
+                            .padding(.horizontal, 4)
+
+                            if let error = billAmountError {
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                                    .padding(.horizontal, 4)
+                                    .transition(.opacity)
+                            }
                         }
-                        .padding(.horizontal, 4)
+                        .animation(.easeInOut(duration: 0.2), value: billAmountError)
                     }
 
                     // MARK: Tip Percentage Section
@@ -88,6 +108,35 @@ struct ContentView: View {
             .navigationTitle("Tip Calculator")
             .background(Color(.systemGroupedBackground))
         }
+    }
+    // MARK: - Bill Input Validation
+
+    /// Strips non-numeric characters (letters, symbols) from bill input.
+    /// Allows digits and a single decimal point only.
+    /// Sets `billAmountError` when invalid characters are removed.
+    private func sanitizeBillInput(_ input: String, previous: String) -> String {
+        let allowedCharacters = CharacterSet.decimalDigits.union(CharacterSet(charactersIn: "."))
+        let filtered = input.unicodeScalars
+            .filter { allowedCharacters.contains($0) }
+            .map(Character.init)
+
+        let result = enforceOneDecimalPoint(String(filtered))
+
+        if result != input {
+            billAmountError = "Enter numbers only"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                billAmountError = nil
+            }
+        }
+
+        return result
+    }
+
+    /// Ensures the string contains at most one decimal point.
+    private func enforceOneDecimalPoint(_ input: String) -> String {
+        let parts = input.components(separatedBy: ".")
+        guard parts.count > 2 else { return input }
+        return parts[0] + "." + parts[1...].joined()
     }
 }
 
