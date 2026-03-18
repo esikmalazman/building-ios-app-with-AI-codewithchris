@@ -17,49 +17,24 @@ struct ContentView: View {
     @State private var billAmountError: String? = nil
     @FocusState private var billFieldFocused: Bool
 
-    private let tipOptions = [10, 15, 20]
-    private let defaultTipPercentage = 15
+    private let tipOptions = TipCalculator.tipOptions
+    private let defaultTipPercentage = TipCalculator.defaultTipPercentage
 
-    // MARK: - Derived bill value
+    // MARK: - Derived values (delegated to TipCalculator)
 
-    /// Parses the bill string to a Double, treating a lone "." as empty.
-    var parsedBillAmount: Double {
-        let trimmed = billAmount.trimmingCharacters(in: CharacterSet(charactersIn: "."))
-        return Double(trimmed) ?? 0
-    }
-
+    var parsedBillAmount: Double { TipCalculator.parseBillAmount(billAmount) }
     var billIsEmpty: Bool { parsedBillAmount == 0 }
+    var activeTipPercentage: Int { TipCalculator.safeTipPercentage(selectedTipPercentage) }
+    var safePeopleCount: Int { TipCalculator.safePeopleCount(numberOfPeople) }
 
-    /// Returns the active tip percentage, falling back to the default if selection is somehow invalid.
-    var activeTipPercentage: Int {
-        tipOptions.contains(selectedTipPercentage) ? selectedTipPercentage : defaultTipPercentage
-    }
-
-    // MARK: - Calculations
-
-    /// F-003: Tip amount = bill × tip% ÷ 100. Returns 0 when no bill is entered (D-001).
     var tipAmount: Double {
-        guard parsedBillAmount > 0 else { return 0 }
-        return parsedBillAmount * Double(activeTipPercentage) / 100
+        TipCalculator.tipAmount(bill: parsedBillAmount, tipPercentage: selectedTipPercentage)
     }
-
-    /// F-004: Total amount = bill + tip. Returns 0 if inputs are empty.
     var totalAmount: Double {
-        guard parsedBillAmount > 0 else { return 0 }
-        return parsedBillAmount + tipAmount
+        TipCalculator.totalAmount(bill: parsedBillAmount, tipPercentage: selectedTipPercentage)
     }
-
-    /// F-005: Safe people count — clamps to 1 if numberOfPeople is somehow below 1 (D-003).
-    var safePeopleCount: Int {
-        max(1, numberOfPeople)
-    }
-
-    /// F-006: Amount per person = total ÷ number of people.
-    /// Returns totalAmount directly when safePeopleCount is 1 (avoids divide-by-zero and satisfies spec).
     var amountPerPerson: Double {
-        guard totalAmount > 0 else { return 0 }
-        guard safePeopleCount > 1 else { return totalAmount }
-        return totalAmount / Double(safePeopleCount)
+        TipCalculator.amountPerPerson(bill: parsedBillAmount, tipPercentage: selectedTipPercentage, numberOfPeople: numberOfPeople)
     }
 
     var body: some View {
@@ -202,32 +177,15 @@ struct ContentView: View {
 
     // MARK: - Bill Input Validation
 
-    /// Strips non-numeric characters (letters, symbols) from bill input.
-    /// Allows digits and a single decimal point only.
-    /// Sets `billAmountError` when invalid characters are removed.
     private func sanitizeBillInput(_ input: String, previous: String) -> String {
-        let allowedCharacters = CharacterSet.decimalDigits.union(CharacterSet(charactersIn: "."))
-        let filtered = input.unicodeScalars
-            .filter { allowedCharacters.contains($0) }
-            .map(Character.init)
-
-        let result = enforceOneDecimalPoint(String(filtered))
-
+        let result = TipCalculator.sanitizeBillInput(input)
         if result != input {
             billAmountError = "Enter numbers only"
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 billAmountError = nil
             }
         }
-
         return result
-    }
-
-    /// Ensures the string contains at most one decimal point.
-    private func enforceOneDecimalPoint(_ input: String) -> String {
-        let parts = input.components(separatedBy: ".")
-        guard parts.count > 2 else { return input }
-        return parts[0] + "." + parts[1...].joined()
     }
 }
 
@@ -270,6 +228,29 @@ private struct SummaryRow: View {
     }
 }
 
-#Preview {
+// MARK: - Previews
+
+#Preview("Empty State") {
     ContentView()
+}
+
+#Preview("Standard — $50, 15%, 2 people") {
+    let _ = UserDefaults.standard.set("50", forKey: "lastBillAmount")
+    let _ = UserDefaults.standard.set(15, forKey: "lastTipPercentage")
+    let _ = UserDefaults.standard.set(2, forKey: "lastNumberOfPeople")
+    return ContentView()
+}
+
+#Preview("Large Bill — $200, 20%, 4 people") {
+    let _ = UserDefaults.standard.set("200", forKey: "lastBillAmount")
+    let _ = UserDefaults.standard.set(20, forKey: "lastTipPercentage")
+    let _ = UserDefaults.standard.set(4, forKey: "lastNumberOfPeople")
+    return ContentView()
+}
+
+#Preview("Solo — $35.50, 10%, 1 person") {
+    let _ = UserDefaults.standard.set("35.50", forKey: "lastBillAmount")
+    let _ = UserDefaults.standard.set(10, forKey: "lastTipPercentage")
+    let _ = UserDefaults.standard.set(1, forKey: "lastNumberOfPeople")
+    return ContentView()
 }
