@@ -46,7 +46,7 @@ struct ContentView: View {
                 .padding(.vertical, 16)
             }
             .navigationTitle("Tip Calculator")
-            .toolbarTitleDisplayMode(.inlineLarge)
+            .navigationBarTitleDisplayMode(.large)
             .background(Color(.systemGroupedBackground))
             .toolbar { toolbarContent }
         }
