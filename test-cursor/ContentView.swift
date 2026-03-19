@@ -10,11 +10,27 @@ import SwiftUI
 // MARK: - Design System
 
 private enum DS {
-    /// Wise / Cash App signature green
-    static let accent = Color(red: 0.0, green: 0.78, blue: 0.35)
+    /// Red violet — warm, premium, distinct from generic fintech green.
+    static let accent = Color(red: 0.710, green: 0.200, blue: 0.541)
+
+    /// Warm blush background: clearly tinted in light mode, deep plum in dark mode.
+    /// Uses UIColor for proper adaptive rendering — opacity overlays on grey don't carry warmth.
+    static let warmBackground = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.10, green: 0.06, blue: 0.09, alpha: 1) // deep warm plum
+            : UIColor(red: 0.97, green: 0.92, blue: 0.95, alpha: 1) // soft blush rose
+    })
+
+    /// Card surface that sits cleanly on the warm background.
+    static let cardSurface = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.17, green: 0.11, blue: 0.15, alpha: 1)
+            : UIColor(red: 1.00, green: 1.00, blue: 1.00, alpha: 1)
+    })
+
     static let cardRadius: CGFloat = 16
     static let labelFont = Font.system(size: 11, weight: .bold)
-    static let labelTracking: CGFloat = 1.8
+    static let labelTracking: CGFloat = 1.2
 
     enum Anim {
         /// Numeric value updates — clean roll, zero bounce.
@@ -47,7 +63,7 @@ struct ContentView: View {
             }
             .navigationTitle("Tip Calculator")
             .navigationBarTitleDisplayMode(.large)
-            .background(Color(.systemGroupedBackground))
+            .background(DS.warmBackground.ignoresSafeArea())
             .toolbar { toolbarContent }
         }
     }
@@ -63,11 +79,11 @@ struct ContentView: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text("$")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary.opacity(0.3))
 
                 TextField("0.00", text: $viewModel.billAmount)
-                    .font(.system(size: 54, weight: .black).monospacedDigit())
+                    .font(.system(size: 54, weight: .black, design: .rounded).monospacedDigit())
                     .keyboardType(.decimalPad)
                     .focused($billFieldFocused)
                     .onChange(of: viewModel.billAmount) { _, newValue in
@@ -123,7 +139,8 @@ struct ContentView: View {
                     Spacer()
 
                     Text(viewModel.safePeopleCount == 1 ? "1 person" : "\(viewModel.safePeopleCount) people")
-                        .font(.system(size: 17, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 17, weight: .semibold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(DS.accent)
                         .contentTransition(.numericText())
                         .animation(DS.Anim.value, value: viewModel.numberOfPeople)
 
@@ -149,18 +166,19 @@ struct ContentView: View {
 
                 Group {
                     if viewModel.billIsEmpty {
-                        Text("—")
-                            .foregroundStyle(.primary.opacity(0.12))
+                        Text("$0.00")
+                            .foregroundStyle(DS.accent.opacity(0.18))
                             .transition(.opacity)
                     } else {
-                        Text(viewModel.amountPerPerson, format: .currency(code: "USD"))
+                        Text(viewModel.amountPerPerson, format: .currency(code: "USD").presentation(.narrow))
                             .foregroundStyle(DS.accent)
                             .contentTransition(.numericText())
                             .animation(DS.Anim.value, value: viewModel.amountPerPerson)
                             .transition(.opacity)
                     }
                 }
-                .font(.system(size: 58, weight: .black).monospacedDigit())
+                .font(.system(size: 58, weight: .black, design: .rounded).monospacedDigit())
+                .tracking(-0.5)
                 .animation(DS.Anim.reveal, value: viewModel.billIsEmpty)
             }
             .frame(maxWidth: .infinity)
@@ -186,7 +204,7 @@ struct ContentView: View {
             .opacity(viewModel.billIsEmpty ? 0 : 1)
             .animation(DS.Anim.reveal, value: viewModel.billIsEmpty)
         }
-        .card()
+        .resultCard()
     }
 
     // MARK: - Helpers
@@ -217,11 +235,13 @@ struct ContentView: View {
             Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .bold))
                 .frame(width: 40, height: 40)
-                .background(Color.primary.opacity(0.06))
-                .clipShape(Circle())
+                .overlay {
+                    Circle()
+                        .strokeBorder(DS.accent.opacity(0.5), lineWidth: 1.5)
+                }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(.primary)
+        .foregroundStyle(DS.accent)
         .disabled(isDisabled)
     }
 
@@ -253,17 +273,18 @@ private struct TipButton: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.system(size: 15, weight: .bold))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 11)
-                .background(isSelected ? Color.primary : Color.clear)
-                .foregroundStyle(isSelected ? Color(.systemBackground) : .primary)
+                .background(isSelected ? DS.accent : Color.clear)
+                .foregroundStyle(isSelected ? Color.white : .primary)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay {
-                    if !isSelected {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1.5)
-                    }
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(
+                            isSelected ? DS.accent : Color.primary.opacity(0.18),
+                            lineWidth: 1.5
+                        )
                 }
         }
         .buttonStyle(.plain)
@@ -276,11 +297,22 @@ private struct TipButton: View {
 private extension View {
     func card() -> some View {
         self
-            .background(Color(.secondarySystemGroupedBackground))
+            .background(DS.cardSurface)
             .clipShape(RoundedRectangle(cornerRadius: DS.cardRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: DS.cardRadius)
                     .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+            }
+    }
+
+    /// Result card: same white surface with a soft accent border to distinguish it.
+    func resultCard() -> some View {
+        self
+            .background(DS.cardSurface)
+            .clipShape(RoundedRectangle(cornerRadius: DS.cardRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: DS.cardRadius)
+                    .strokeBorder(DS.accent.opacity(0.15), lineWidth: 1)
             }
     }
 }
