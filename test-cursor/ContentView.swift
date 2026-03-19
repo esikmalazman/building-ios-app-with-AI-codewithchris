@@ -47,6 +47,7 @@ struct ContentView: View {
     // MARK: - Dependencies
 
     @State private var viewModel = TipCalculatorViewModel()
+    @State private var isTyping = false
     @FocusState private var billFieldFocused: Bool
 
     // MARK: - Body
@@ -62,7 +63,8 @@ struct ContentView: View {
                 .padding(.vertical, 16)
             }
             .navigationTitle("Tip Calculator")
-            .navigationBarTitleDisplayMode(.large)
+           // .navigationBarTitleDisplayMode(.large)
+            .toolbarTitleDisplayMode(.inlineLarge)
             .background(DS.warmBackground.ignoresSafeArea())
             .toolbar { toolbarContent }
         }
@@ -89,6 +91,11 @@ struct ContentView: View {
                     .onChange(of: viewModel.billAmount) { _, newValue in
                         viewModel.updateBillAmount(newValue)
                     }
+                    .onChange(of: billFieldFocused) { _, focused in
+                        withAnimation(DS.Anim.reveal) {
+                            isTyping = focused
+                        }
+                    }
             }
 
             if let error = viewModel.billAmountError {
@@ -104,22 +111,64 @@ struct ContentView: View {
                 .frame(height: 1)
                 .padding(.vertical, 20)
 
-            rowLabel("Tip")
-                .padding(.bottom, 10)
-
-            HStack(spacing: 8) {
-                ForEach(TipCalculator.tipOptions, id: \.self) { percentage in
-                    TipButton(
-                        label: "\(percentage)%",
-                        isSelected: viewModel.selectedTipPercentage == percentage
-                    ) {
-                        viewModel.selectedTipPercentage = percentage
+            if isTyping {
+                // Compact inline: label + menu on one row so the result card
+                // stays visible above the keyboard while the user types.
+                HStack {
+                    rowLabel("Tip")
+                    Spacer()
+                    Menu {
+                        ForEach(TipCalculator.tipOptions, id: \.self) { percentage in
+                            Button {
+                                viewModel.selectedTipPercentage = percentage
+                            } label: {
+                                Label(
+                                    "\(percentage)%",
+                                    systemImage: viewModel.selectedTipPercentage == percentage
+                                        ? "checkmark" : ""
+                                )
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("\(viewModel.selectedTipPercentage)%")
+                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(DS.accent)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(DS.accent, lineWidth: 1.5)
+                        }
                     }
                 }
+                .transition(.opacity)
+            } else {
+                // Expanded: full button row when keyboard is not active.
+                VStack(alignment: .leading, spacing: 10) {
+                    rowLabel("Tip")
+                    HStack(spacing: 8) {
+                        ForEach(TipCalculator.tipOptions, id: \.self) { percentage in
+                            TipButton(
+                                label: "\(percentage)%",
+                                isSelected: viewModel.selectedTipPercentage == percentage
+                            ) {
+                                viewModel.selectedTipPercentage = percentage
+                            }
+                        }
+                    }
+                }
+                .transition(.opacity)
             }
         }
         .padding(20)
         .card()
+        .animation(DS.Anim.reveal, value: isTyping)
         .animation(DS.Anim.reveal, value: viewModel.billAmountError != nil)
     }
 
