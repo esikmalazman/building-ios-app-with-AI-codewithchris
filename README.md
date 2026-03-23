@@ -3,6 +3,12 @@
 This repository contains a project to help myself learn how to building iOS app and communicate visual design changes using Cursor AI.
 The goal is to help me to practice to adopt my workflow and effectively describing design improvements to AI.
 
+## Demo
+
+<video src='https://github.com/user-attachments/assets/6a2035e4-712a-4f9a-b966-2ca0b70d577e' width='200' autoplay loop muted playsinline></video>
+
+
+
 ## Repository structure
 ```
 TEST-CURSOR/
